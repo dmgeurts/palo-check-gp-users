@@ -6,7 +6,7 @@ Check Palo Alto firewall for user status.
 
 Fetch known users, list in the following format
 
-`user, active (current, last or never), login-time, logout-time, reason, client-ip, region, client, app-version, cert expiry
+`user, active (current, last or never), login-time, logout-time, reason, client-ip, region, client, app-version, cert expiry`
 
 current/last login-time
 last logout-time
