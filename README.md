@@ -2,6 +2,10 @@
 
 Fetch Palo Alto firewall GlobalProtect user details.
 
+## Requirements
+
+Installed packages: openssl, pan-python, xmlstarlet
+
 ## Telegraf exec script
 
 Fetch known users and return them in CSV format, listing the following details:
