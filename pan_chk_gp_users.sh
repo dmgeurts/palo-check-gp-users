@@ -30,9 +30,11 @@ OPTIND=1
 LOG="/var/log/pan_chk_gp_users.log"
 wlog() {
     printf "$*"
-    if ! printf "[$(date --rfc-3339=seconds)]: $*" >> "$LOG" &>/dev/null; then
+    if ! ( : >> "$LOG" ) &>/dev/null; then
         echo "ERROR: Can't write to log file: $LOG. Sudo or root expected."
         exit 1
+    else
+        printf "[$(date --rfc-3339=seconds)]: $*" >> "$LOG"
     fi
 }
 # On error log a last line
