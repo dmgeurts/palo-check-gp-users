@@ -166,7 +166,7 @@ fi
 # Try to read API_KEY from file
 if API_KEY=$(read_cfg "api_key" "$API_KEY"); then
     # Changes the variable from a file-path to the API KEY string
-    (( $VERBOSE > 0 )) && wlog "API key read from file: $API_KEY\n"
+    (( $VERBOSE > 0 )) && wlog "API key read from file.\n"
 fi
 
 # Read config file
@@ -233,12 +233,12 @@ fi
 
 ## Fetch GlobalProtect user details using panxapi.py
 # Define the keys we want to extract
-declare -a CURR_U_KEYS=("login-time-utc" "tunnel-type" "client-ip" "source-region" "client" "app-version")   # active=yes if user is returned
-declare -a PREV_U_KEYS=("login-time-utc" "logout-time-utc" "reason" "client-ip" "source-region" "client" "app-version")  # active=no if user not active now
+declare -a CURR_U_KEYS=("login-time-utc" "vpn-type" "client-ip" "source-region" "client" "app-version")   # active=yes if user is returned
+declare -a PREV_U_KEYS=("login-time-utc" "logout-time-utc" "reason" "vpn-type" "client-ip" "source-region" "client" "app-version")  # active=no if user not active now
 # client = OS identifier string
 
 # Define all possible keys for the final CSV output, in desired order
-declare -a CSV_HEADERS=("username" "active" "login-time-utc" "logout-time-utc" "reason" "tunnel-type" "client-ip" "source-region" "client" "app-version" "cert-name" "cert-expiry-epoch")
+declare -a CSV_HEADERS=("username" "active" "login-time-utc" "logout-time-utc" "reason" "vpn-type" "client-ip" "source-region" "client" "app-version" "cert-name" "cert-expiry-epoch")
 
 # Define a variable to hold all generated associative array names
 declare -a USER_ARRAYS=()
@@ -249,10 +249,17 @@ get_api_xml() {
     local _cmd_xml=$1
     # Check if this is a config query (starts with '/') or op query (starts with '<')
     if [[ "$_cmd_xml" == "/"* ]]; then
-        panxapi.py -h "$PAN_MGMT" -K "$API_KEY" -gx "$command_xml" 2>/dev/null | grep -v 'get: success'
+        panxapi.py -h "$PAN_MGMT" -K "$API_KEY" -gx "$_cmd_xml" 2>/dev/null | grep -v 'get: success'
     else
-        panxapi.py -h "$PAN_MGMT" -K "$API_KEY" -xo "$command_xml" 2>/dev/null | grep -v 'op: success'
+        panxapi.py -h "$PAN_MGMT" -K "$API_KEY" -xo "$_cmd_xml" 2>/dev/null | grep -v 'op: success'
     fi
+}
+# Function to sanitise values: strip commas and double spaces
+sanitise_value() {
+    local input=$1
+    # Remove all commas and replace double spaces with single spaces globally
+    local output=$(echo "$input" | sed 's/,//g; s/  / /g')
+    echo "$output"
 }
 
 ## Fetch data
@@ -292,7 +299,7 @@ fi
 wlog "Processing Previous Users (historical data).\n"
 for username in $(xmlstarlet sel -t -v "//entry/username" "$TMP_PREV"); do
     # Sanitise the username for use in a bash variable name
-    SAFE_UID=$(echo "$username" | tr '@%.=' '_')
+    SAFE_UID=$(echo "$username" | tr '@%.,=' '_')
     ARRAY_NAME="user_${SAFE_UID}_data"
     # Check if this user was already processed (from the current users list)
     if [[ ! -v "$ARRAY_NAME" ]]; then
@@ -300,11 +307,12 @@ for username in $(xmlstarlet sel -t -v "//entry/username" "$TMP_PREV"); do
         USER_ARRAYS+=("$ARRAY_NAME")
     fi
     declare -n current_array_ref="$ARRAY_NAME"
-    (( $VERBOSE > 0 )) && wlog "Processing user: $username"
+    (( $VERBOSE > 0 )) && wlog " - Processing user: $username\n"
     current_array_ref["username"]="$username"
     current_array_ref["active"]="no"
     for key in "${PREV_U_KEYS[@]}"; do
         value=$(xmlstarlet sel -t -v "//entry[username='$username']/$key" "$TMP_PREV")
+        value=$(sanitise_value "$value")
         current_array_ref["$key"]="$value"
     done
 done
@@ -314,7 +322,7 @@ wlog "Processing Current Users (live data).\n"
 # Iterate over entries in temp XML file with xmlstarlet
 for username in $(xmlstarlet sel -t -v "//entry/username" "$TMP_CURR"); do
     # Sanitise the username for use in a bash variable name
-    SAFE_UID=$(echo "$username" | tr '@%.=' '_')
+    SAFE_UID=$(echo "$username" | tr '@%.,=' '_')
     ARRAY_NAME="user_${SAFE_UID}_data"
     # Create the array structure if it doesn't yet exist
     if [[ ! -v "$ARRAY_NAME" ]]; then
@@ -322,7 +330,7 @@ for username in $(xmlstarlet sel -t -v "//entry/username" "$TMP_CURR"); do
         USER_ARRAYS+=("$ARRAY_NAME")
     fi
     declare -n current_array_ref="$ARRAY_NAME"
-    (( $VERBOSE > 0 )) && wlog "Processing user: $username"
+    (( $VERBOSE > 0 )) && wlog " - Processing user: $username\n"
     current_array_ref["username"]="$username"
     current_array_ref["active"]="yes"  # Overwrite to 'yes' if username appears in both queries
     # Iterate through defined keys, overwriting duplicates
@@ -330,6 +338,7 @@ for username in $(xmlstarlet sel -t -v "//entry/username" "$TMP_CURR"); do
         value=$(xmlstarlet sel -t -v "//entry[username='$username']/$key" "$TMP_CURR")
         # Value might be empty if a field isn't present in the active list XML
         if [[ -n "$value" ]]; then
+            value=$(sanitise_value "$value")
             current_array_ref["$key"]="$value"
         fi
     done
@@ -345,8 +354,9 @@ if [[ "$CHK_CERTS" == "true" ]]; then
         expiry=$(xmlstarlet sel -t -v "//entry[@name='$cert_name']/expiry-epoch" "$TMP_CERT")
         # Try to find a user record that matches this common name
         if [[ -n "$cn" ]]; then
-            SAFE_UID=$(echo "$cn" | tr '@%.=' '_')
+            SAFE_UID=$(echo "$cn" | tr '@%.,=' '_')
             ARRAY_NAME="user_${SAFE_UID}_data"
+            (( $VERBOSE > 0 )) && wlog " - Processing user: $cn\n"
             if [[ -v "$ARRAY_NAME" ]]; then
                 # User found! Add cert details to their record
                 declare -n current_array_ref="$ARRAY_NAME"
