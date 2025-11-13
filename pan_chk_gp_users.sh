@@ -43,8 +43,8 @@ trap 'wlog "ERROR - Check GP users failed.\n"' TERM HUP
 show_help() {
 cat << EOF
 Usage: ${0##*/} [-hv] [OPTIONS] FQDN/PATH
-This script checks whether any certificates will expire within x days on a Palo Alto firewall
-or Panorama.
+This script returns current and previous GrobalProtect user details for use by Telegraf.
+Optionally, it can add client certificate name and expiry.
 
 Either of the following must be provided:
     FQDN              Fully qualified name of the Palo Alto firewall or Panorama
