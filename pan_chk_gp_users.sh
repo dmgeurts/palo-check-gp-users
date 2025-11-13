@@ -30,8 +30,12 @@ OPTIND=1
 LOG="/var/log/pan_chk_gp_users.log"
 wlog() {
     printf "$*"
-    printf "[$(date --rfc-3339=seconds)]: $*" >> "$LOG"
+    if ! printf "[$(date --rfc-3339=seconds)]: $*" >> "$LOG" &>/dev/null; then
+        echo "ERROR: Can't write to log file: $LOG. Sudo or root expected."
+        exit 1
+    fi
 }
+# On error log a last line
 trap 'wlog "ERROR - Check GP users failed.\n"' TERM HUP
 
 ## Usage info
@@ -83,15 +87,8 @@ while getopts k:g:d:cvh opt; do
 done
 shift "$((OPTIND-1))"   # Discard the options and sentinel --
 
-## Start logging
-# Check if the log file can be written.
-if [[ -w "$LOG" ]]; then
-    # Write first line to log.
-    wlog "START of pan_chk_certs.\n"
-else
-    echo "ERROR: Can't write to log file: $LOG. Sudo or root expected."
-    exit 1
-fi
+# Start logging
+wlog "START of pan_chk_certs.\n"
 
 ## Host checks
 PAN_MGMT=""
