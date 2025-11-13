@@ -90,7 +90,7 @@ done
 shift "$((OPTIND-1))"   # Discard the options and sentinel --
 
 # Start logging
-wlog "START of pan_chk_certs.\n"
+wlog "START of pan_chk_gp_users.\n"
 
 ## Host checks
 PAN_MGMT=""
