@@ -11,11 +11,6 @@
 #   - Or by gateway: <show><global-protect-gateway><previous-user><gateway>$GATEWAY</gateway></previous-user></global-protect-gateway></show>
 #   - Or by domain: <show><global-protect-gateway><previous-user><domain>$DOMAIN</domain></previous-user></global-protect-gateway></show>
 # - (Optionally) Client Certificates: /config/shared/certificate/entry[contains(@name, '$CRT_FLT' )]
- # - Statistics:
- #   - <show><global-protect-gateway><statistics/></global-protect-gateway></show>
- #     - Shows total current and previous users with a gateway/domain breakdown.
- #   - <show><global-protect-gateway><summary><detail/></summary></global-protect-gateway></show>
- #     - Shows gateway summary: current-user, error-no-config, gateway-max-concurrent-tunnel, gateway-successful-ip-sec-connections, successful-gateway-connections, error-invalid-cookie, error-dup-user, gateway-successful-sslvpn-connections
 
 ## Requirements
 # Installed packages: openssl, pan-python, xmlstarlet
