@@ -23,6 +23,10 @@
           <username><xsl:value-of select="$latest/username"/></username>
           <active>yes</active>
           <current-count><xsl:value-of select="count(key('by-user', $uname))"/></current-count>
+          <!-- Added placeholder fields to match filter-previous-users.xsl schema -->
+          <logout-time-utc />           <!-- ⬅️ add empty -->
+          <reason />                    <!-- ⬅️ add empty -->
+          <previous-count />            <!-- ⬅️ add empty -->
           <login-time-utc><xsl:value-of select="$latest/login-time-utc"/></login-time-utc>
           <vpn-type><xsl:value-of select="$latest/vpn-type"/></vpn-type>
           <client-ip><xsl:value-of select="$latest/client-ip"/></client-ip>
