@@ -21,6 +21,7 @@
 
         <entry>
           <username><xsl:value-of select="$latest/username"/></username>
+          <active>yes</active>
           <current-count><xsl:value-of select="count(key('by-user', $uname))"/></current-count>
           <login-time-utc><xsl:value-of select="$latest/login-time-utc"/></login-time-utc>
           <vpn-type><xsl:value-of select="$latest/vpn-type"/></vpn-type>
