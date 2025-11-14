@@ -22,6 +22,8 @@
         <entry>
           <username><xsl:value-of select="$latest/username"/></username>
           <active>no</active>
+          <!-- Added placeholder fields to match filter-current-users.xsl schema -->
+          <current-count />
           <previous-count><xsl:value-of select="count(key('by-user', $uname))"/></previous-count>
           <login-time-utc><xsl:value-of select="$latest/login-time-utc"/></login-time-utc>
           <logout-time-utc><xsl:value-of select="$latest/logout-time-utc"/></logout-time-utc>
