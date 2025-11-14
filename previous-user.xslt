@@ -21,7 +21,7 @@
 
         <entry>
           <username><xsl:value-of select="$latest/username"/></username>
-          <entry-count><xsl:value-of select="count(key('by-user', $uname))"/></entry-count>
+          <previous-count><xsl:value-of select="count(key('by-user', $uname))"/></previous-count>
           <login-time-utc><xsl:value-of select="$latest/login-time-utc"/></login-time-utc>
           <logout-time-utc><xsl:value-of select="$latest/logout-time-utc"/></logout-time-utc>
           <reason><xsl:value-of select="$latest/reason"/></reason>
