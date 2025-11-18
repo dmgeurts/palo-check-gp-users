@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xsl:stylesheet version="1.0"
-  xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
   <xsl:output method="xml" indent="yes"/>
 
-  <!-- Match root and output only the entries we want -->
   <xsl:template match="/">
     <records>
-      <xsl:for-each select="/response/result/entry[substring(@name, string-length(@name)-3) = '_vpn']">
+      <xsl:for-each select="/response/result/entry">
         <entry>
           <username><xsl:value-of select="common-name"/></username>
           <cert-name><xsl:value-of select="@name"/></cert-name>
