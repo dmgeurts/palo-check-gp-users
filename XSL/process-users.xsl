@@ -68,20 +68,32 @@
           </reason>
 
           <vpn-type>
-            <xsl:value-of select="$userEntries/vpn-type[normalize-space()][1]"/>
+            <xsl:value-of select="$latest/vpn-type[normalize-space()]"/>
           </vpn-type>
+
           <client-ip>
-            <xsl:value-of select="$userEntries/client-ip[normalize-space()][1]"/>
+            <xsl:value-of select="$latest/client-ip[normalize-space()]"/>
           </client-ip>
+
           <source-region>
-            <xsl:value-of select="$userEntries/source-region[normalize-space()][1]"/>
+            <xsl:value-of select="$latest/source-region[normalize-space()]"/>
           </source-region>
+
           <client>
-            <xsl:value-of select="$userEntries/client[normalize-space()][1]"/>
+            <xsl:value-of select="$latest/client[normalize-space()]"/>
           </client>
+
           <app-version>
-            <xsl:value-of select="$userEntries/app-version[normalize-space()][1]"/>
+            <xsl:value-of select="$latest/app-version"/>
           </app-version>
+
+          <cert-name>
+            <xsl:value-of select="$userEntries/cert-name"/>
+          </cert-name>
+
+          <cert-expiry>
+            <xsl:value-of select="$userEntries/cert-expiry"/>
+          </cert-expiry>
 
         </entry>
 
