@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8"?>
+ch<?xml version="1.0" encoding="UTF-8"?>
 <xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
   <xsl:output method="xml" indent="yes"/>
 
@@ -91,9 +91,9 @@
             <xsl:value-of select="$userEntries/cert-name"/>
           </cert-name>
 
-          <cert-expiry>
-            <xsl:value-of select="$userEntries/cert-expiry"/>
-          </cert-expiry>
+          <cert-expiry-epoch>
+            <xsl:value-of select="$userEntries/cert-expiry-epoch"/>
+          </cert-expiry-epoch>
 
         </entry>
 
