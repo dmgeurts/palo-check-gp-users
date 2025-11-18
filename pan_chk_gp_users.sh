@@ -126,8 +126,8 @@ read_cfg() {
     local _value=""
     # Regex safe matching, except for quotes. But quotes may not be used in certificate names in Panos.
     IFS= read -r _value < <(
-        grep -P "^${key}=" "$file" |
-        sed -E "s/^${key}=(\"?)(.*)\1$/\2/"
+        grep -P "^${_key}=" "$_file" |
+        sed -E "s/^${_key}=(\"?)(.*)\1$/\2/"
     )
     if [[ -n "$_value" ]]; then
         printf '%s' "$_value"
@@ -297,7 +297,21 @@ fi
 # Conditionally, fetch client certificate data
 if [[ "$CHK_CERTS" == "true" ]]; then
     (( $VERBOSE > 0 )) && wlog "Fetching client certificate data.\n"
-    if ! cert_xml_data=$(get_api_xml "/config/shared/certificate/entry[contains(@name, '$CRT_FLT' )]"); then
+    #if ! cert_xml_data=$(get_api_xml "/config/shared/certificate/entry[contains(@name, '$CRT_FLT' )]"); then
+    if cert_xml_data=$(get_api_xml "/config/shared/certificate/entry"); then
+        cert_xml_data="$(
+            echo "$cert_xml_data" |
+            xmlstarlet sel -t -c "/response/result/entry" |
+            awk '
+                /<entry / { block=""; inside=1 }
+                inside   { block = block $0 "\n" }
+                /<\/entry>/ {
+                    inside=0
+                    print block
+                }
+            ' | grep -P "$CRT_FLT" | xmlstarlet fo 2>/dev/null
+        )"
+    else
         (( $VERBOSE > 0 )) && wlog "ERROR: Failed to retrieve client certificate data. Check API KEY validity and privileges.\n" >&2
         # Don't exit, but report on the data that was successfully obtained
     fi
