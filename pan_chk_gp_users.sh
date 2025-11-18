@@ -222,6 +222,11 @@ if [ -n "$CFG_FILE" ]; then
     fi
     if [[ "$CHK_CERTS" == "true" ]]; then
         (( $VERBOSE > 0 )) && wlog "Checking client certificates.\n"
+            # Try to read a certificate name filter from the config file
+            if TEST_CRT_FLT=$(read_cfg "cert_filter" "$CFG_FILE"); then
+                CRT_FLT="$TEST_CRT_FLT"
+            fi
+            (( $VERBOSE > 0 )) && wlog "Filtering certificates by \"$CRT_FLT\"\n"
     else
         (( $VERBOSE > 0 )) && wlog "Not checking client certificates.\n"
     fi
