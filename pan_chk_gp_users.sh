@@ -198,6 +198,7 @@ if [ -n "$CFG_FILE" ]; then
     # Try to read XSLT filter path from config file if not parsed with -x
     if [[ "$XSL_PATH" == "/etc/panos" ]] && TEST=$(read_cfg "xsl_filter_path" "$CFG_FILE"); then
         XSL_PATH="$TEST"
+    fi
     # Try to read a GP Gateway from the config file if not parsed with -g
     if [ -z "$GP_GATEWAY" ] && GP_GATEWAY=$(read_cfg "gp_gateway" "$CFG_FILE"); then
         (( $VERBOSE > 0 )) && wlog "GlobalProtect Gateway \"$GP_GATEWAY\" filter found in: $CFG_FILE\n"
@@ -223,8 +224,8 @@ if [ -n "$CFG_FILE" ]; then
     if [[ "$CHK_CERTS" == "true" ]]; then
         (( $VERBOSE > 0 )) && wlog "Checking client certificates.\n"
             # Try to read a certificate name filter from the config file
-            if TEST_CRT_FLT=$(read_cfg "cert_filter" "$CFG_FILE"); then
-                CRT_FLT="$TEST_CRT_FLT"
+            if TEST=$(read_cfg "cert_filter" "$CFG_FILE"); then
+                CRT_FLT="$TEST"
             fi
             (( $VERBOSE > 0 )) && wlog "Filtering certificates by \"$CRT_FLT\"\n"
     else
@@ -307,9 +308,8 @@ TMP_XML=$(mktemp)
           -o "<entry>" -n \
           -o "  <username>" -v "common-name" -o "</username>" -n \
           -o "  <cert-name>" -v "@name" -o "</cert-name>" -n \
-          -o "  <cert-expiry>" -v "not-valid-after" -o "</cert-expiry>" -n \
+          -o "  <cert-expiry-epoch>" -v "expiry-epoch" -o "</cert-expiry-epoch>" -n \
           -o "</entry>" -n
-    fi
     printf "\n</records>\n";
 } | xmlstarlet tr "$XSL_PATH/$XSL_USERS" > "$TMP_XML"
 
