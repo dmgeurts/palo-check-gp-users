@@ -21,6 +21,7 @@ API_KEY="/etc/ipa/.panrc"
 # XSLT filter path
 XSL_PATH="/etc/panos"
 XSL_USERS="process-users.xsl"
+XSL_CERTS="process-certs.xsl"
 # Filter for selecting certificates to report on
 CRT_FLT="_vpn"
 # Check client certs?
@@ -303,13 +304,7 @@ TMP_XML=$(mktemp)
     printf "<records>\n";
     echo "$curr_xml_data" | xmlstarlet ed -s "/response/result/entry" -t elem -n active -v "yes" | xmlstarlet sel -t -c "/response/result/entry";
     echo "$prev_xml_data" | xmlstarlet ed -s "/response/result/entry" -t elem -n active -v "no" | xmlstarlet sel -t -c "/response/result/entry";
-    [ -n "$cert_xml_data" ] && echo "$cert_xml_data" | xmlstarlet sel -t \
-          -m "/response/result/entry[substring(@name, string-length(@name)-3) = '$CRT_FLT']" \
-          -o "<entry>" -n \
-          -o "  <username>" -v "common-name" -o "</username>" -n \
-          -o "  <cert-name>" -v "@name" -o "</cert-name>" -n \
-          -o "  <cert-expiry-epoch>" -v "expiry-epoch" -o "</cert-expiry-epoch>" -n \
-          -o "</entry>" -n
+    [ -n "$cert_xml_data" ] && echo "$cert_xml_data" | xmlstarlet tr "$XSL_PATH/$XSL_CERTS" | grep -v "xml version"
     printf "\n</records>\n";
 } | xmlstarlet tr "$XSL_PATH/$XSL_USERS" > "$TMP_XML"
 
