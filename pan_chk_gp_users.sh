@@ -280,69 +280,35 @@ fi
 if ! prev_xml_data=$(get_api_xml "<show><global-protect-gateway><previous-user>$xml_sub</previous-user></global-protect-gateway></show>"); then
     exit 1
 fi
-# Combine the GlobalProtect XML output for current and previous users
-TMP_XML=$(mktemp)
-{
-  printf "<records>\n";
-  echo "$curr_xml_data" | xmlstarlet ed -s "/response/result/entry" -t elem -n active -v "yes" | xmlstarlet sel -t -c "/response/result/entry";
-  echo "$prev_xml_data" | xmlstarlet ed -s "/response/result/entry" -t elem -n active -v "no" | xmlstarlet sel -t -c "/response/result/entry";
-  printf "\n</records>\n";
-} | xmlstarlet tr "$XSL_PATH/$XSL_USERS" > "$TMP_XML"
 
+# Conditionally, fetch client certificate data
 if [[ "$CHK_CERTS" == "true" ]]; then
     (( $VERBOSE > 0 )) && wlog "Fetching client certificate data.\n"
     if ! cert_xml_data=$(get_api_xml "/config/shared/certificate/entry[contains(@name, '$CRT_FLT' )]"); then
         (( $VERBOSE > 0 )) && wlog "ERROR: Failed to retrieve client certificate data. Check API KEY validity and privileges.\n" >&2
-        rm "$TMP_CERT"
-        exit 1
+        # Don't exit, but report on the data that was successfully obtained
     fi
 fi
 
+# Combine the GlobalProtect XML output for current and previous users
+TMP_XML=$(mktemp)
+{
+    printf "<records>\n";
+    echo "$curr_xml_data" | xmlstarlet ed -s "/response/result/entry" -t elem -n active -v "yes" | xmlstarlet sel -t -c "/response/result/entry";
+    echo "$prev_xml_data" | xmlstarlet ed -s "/response/result/entry" -t elem -n active -v "no" | xmlstarlet sel -t -c "/response/result/entry";
+    if [ -n "$cert_xml_data" ]; then
+        echo "$cert_xml_data" | xmlstarlet sel -t \
+          -m "/response/result/entry[substring(@name, string-length(@name)-3) = '$CRT_FLT']" \
+          -o "<entry>" -n \
+          -o "  <username>" -v "common-name" -o "</username>" -n \
+          -o "  <cert-name>" -v "@name" -o "</cert-name>" -n \
+          -o "  <cert-expiry>" -v "not-valid-after" -o "</cert-expiry>" -n \
+          -o "</entry>" -n
+    fi
+    printf "\n</records>\n";
+} | xmlstarlet tr "$XSL_PATH/$XSL_USERS" > "$TMP_XML"
 
-
-# Finally, process Certificates to add the certificate name in PanOS config and expiry date
-if [[ "$CHK_CERTS" == "true" ]]; then
-    wlog "Processing Certificates (Link CN to username).\n"
-    # Iterate through certificate entries
-    for cert_name in $(xmlstarlet sel -t -v "//entry/@name" "$TMP_CERT"); do
-        # Get common-name and expiry-epoch for this certificate entry
-        cn=$(xmlstarlet sel -t -v "//entry[@name='$cert_name']/common-name" "$TMP_CERT")
-        expiry=$(xmlstarlet sel -t -v "//entry[@name='$cert_name']/expiry-epoch" "$TMP_CERT")
-        # Try to find a user record that matches this common name
-        if [[ -n "$cn" ]]; then
-            SAFE_UID=$(echo "$cn" | tr '@%.,=' '_')
-            ARRAY_NAME="user_${SAFE_UID}_data"
-            (( $VERBOSE > 0 )) && wlog " - Processing user: $cn\n"
-            if [[ -v "$ARRAY_NAME" ]]; then
-                # User found! Add cert details to their record
-                declare -n current_array_ref="$ARRAY_NAME"
-                current_array_ref["cert-name"]="$cert_name"
-                current_array_ref["cert-expiry-epoch"]="$expiry"
-            fi
-        fi
-    done
-fi
+cat "$TMP_XML"
 
 # Clean up temp files
-rm "$TMP_CURR" "$TMP_PREV" "$TMP_FILTERED" "$TMP_CERT" &>/dev/null
-
-## CSV output for Telegraf exec processing
-wlog "Generating CSV Output, one line per user.\n"
-# Print the header row
-(IFS=,; echo "${CSV_HEADERS[*]}")
-# Iterate through the collected user arrays and print data rows
-for array_name in "${USER_ARRAYS[@]}"; do
-    declare -n current_array="$array_name"
-    # Build a single line for the current user
-    LINE=""
-    for header in "${CSV_HEADERS[@]}"; do
-        VALUE=${current_array[$header]}
-        # Handle commas within data fields for valid CSV format
-        if [[ "$VALUE" == *","* ]]; then
-            VALUE="\"$VALUE\""
-        fi
-        LINE="${LINE}${VALUE},"
-    done
-    # Print the line, removing the trailing comma
-    echo "${LINE%,}"
-done
+rm "$TMP_XML" &>/dev/null
