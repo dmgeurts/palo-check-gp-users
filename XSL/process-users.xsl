@@ -22,10 +22,12 @@
           select="$userEntries
                  [not(number(logout-time-utc) &lt; number(../logout-time-utc))]" />
 
-        <!-- ACTIVE logic -->
+        <!-- ACTIVE logic based on existing active field -->
         <xsl:variable name="active">
           <xsl:choose>
-            <xsl:when test="not(normalize-space($latest/logout-time-utc))">yes</xsl:when>
+            <!-- If ANY entry has <active>yes</active> -->
+            <xsl:when test="$userEntries[active = 'yes']">yes</xsl:when>
+            <!-- Otherwise, no entries are active -->
             <xsl:otherwise>no</xsl:otherwise>
           </xsl:choose>
         </xsl:variable>
