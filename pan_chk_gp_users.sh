@@ -123,10 +123,14 @@ chk_host() {
 read_cfg() {
     local _key=$1
     local _file=$2
+    local _value=""
     # Regex safe matching, except for quotes. But quotes may not be used in certificate names in Panos.
-    local _value="$(grep -P "^${_key}=" "$_file" | sed -E "s/^${_key}=(\"?)(.*)\1$/\2/")"
+    IFS= read -r _value < <(
+        grep -P "^${key}=" "$file" |
+        sed -E "s/^${key}=(\"?)(.*)\1$/\2/"
+    )
     if [[ -n "$_value" ]]; then
-        echo "$_value"
+        printf '%s' "$_value"
         return 0 # true
     else
         return 1 # false
