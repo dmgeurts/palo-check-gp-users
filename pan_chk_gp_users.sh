@@ -268,7 +268,7 @@ get_api_xml() {
     echo "$xml"
 }
 
-## Fetch data
+## Set up the scope for fetching GlobalProtect users
 if [[ -n "$GP_GATEWAY" ]]; then
     xml_sub="><gateway>$GP_GATEWAY</gateway>"
 elif [[ -n "$GP_DOMAIN" ]]; then
@@ -276,6 +276,7 @@ elif [[ -n "$GP_DOMAIN" ]]; then
 else
     xml_sub=""
 fi
+
 # Execute get_xml_api() and save the output to temp files
 (( $VERBOSE > 0 )) && wlog "Fetching Current User data.\n"
 if ! curr_xml_data=$(get_api_xml "<show><global-protect-gateway><current-user>$xml_sub</current-user></global-protect-gateway></show>"); then
@@ -301,8 +302,7 @@ TMP_XML=$(mktemp)
     printf "<records>\n";
     echo "$curr_xml_data" | xmlstarlet ed -s "/response/result/entry" -t elem -n active -v "yes" | xmlstarlet sel -t -c "/response/result/entry";
     echo "$prev_xml_data" | xmlstarlet ed -s "/response/result/entry" -t elem -n active -v "no" | xmlstarlet sel -t -c "/response/result/entry";
-    if [ -n "$cert_xml_data" ]; then
-        echo "$cert_xml_data" | xmlstarlet sel -t \
+    [ -n "$cert_xml_data" ] && echo "$cert_xml_data" | xmlstarlet sel -t \
           -m "/response/result/entry[substring(@name, string-length(@name)-3) = '$CRT_FLT']" \
           -o "<entry>" -n \
           -o "  <username>" -v "common-name" -o "</username>" -n \
@@ -313,7 +313,9 @@ TMP_XML=$(mktemp)
     printf "\n</records>\n";
 } | xmlstarlet tr "$XSL_PATH/$XSL_USERS" > "$TMP_XML"
 
+(( $VERBOSE > 0 )) && wlog "Output compiled XML:\n"
 cat "$TMP_XML"
 
 # Clean up temp files
+(( $VERBOSE > 0 )) && wlog "Remove temporary file and finish.\n"
 rm "$TMP_XML" &>/dev/null
