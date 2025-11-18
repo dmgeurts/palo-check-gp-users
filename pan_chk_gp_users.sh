@@ -18,6 +18,9 @@
 ## Fixed variables
 # Reuse pan_instcert API key
 API_KEY="/etc/ipa/.panrc"
+# XSLT filter path
+XSL_PATH="/etc/panos"
+XSL_USERS="process-users.xsl"
 # Filter for selecting certificates to report on
 CRT_FLT="_vpn"
 # Check client certs?
@@ -57,6 +60,7 @@ OPTIONS:
                       If a string is parsed, the following paths are searched:
                       {key(path)}/.panrc         - Example: /etc/panos/fw1.local/.panrc
                       /etc/ipa/.panrc.{key(ext)} - Example: /etc/ipa/.panrc.fw1.local
+    -x path           Path to XSLT filters.        (default: /etc/panos/)
     -g gateway        GlobalProtect gateway.       (default: all)
     -d domain         GlobalProtect domain.        (default: all)
     -c                Check client certs           (default: no)
@@ -67,9 +71,11 @@ EOF
 }
 
 ## Read/interpret optional arguments
-while getopts k:g:d:cvh opt; do
+while getopts k:x:g:d:cvh opt; do
     case $opt in
         k)  API_KEY=$OPTARG
+            ;;
+        x)  XSL_PATH=$OPTARG
             ;;
         g)  GP_GATEWAY=$OPTARG
             ;;
@@ -134,7 +140,7 @@ if [[ -f "$@" ]]; then
     else
         wlog "ERROR: File cannot be read: $@\n"
         exit 4
-    fi        
+    fi
     #(( $VERBOSE > 0 )) && wlog "File exists and can be read: $@\n"
 elif chk_host "$@"; then
     # PAN_MGMT is now set and tested as reachable
@@ -185,9 +191,13 @@ if [ -n "$CFG_FILE" ]; then
         exit 5
     fi
     # Try to read API key from config file if one isn't parsed with -k
-    if [[ "$API_KEY" == "/etc/ipa/.panrc" ]] && API_KEY=$(read_cfg "api_key" "$CFG_FILE"); then
+    if [[ "$API_KEY" == "/etc/ipa/.panrc" ]] && TEST=$(read_cfg "api_key" "$CFG_FILE"); then
+        API_KEY="$TEST"
         (( $VERBOSE > 0 )) && wlog "API key found in: $CFG_FILE\n"
     fi
+    # Try to read XSLT filter path from config file if not parsed with -x
+    if [[ "$XSL_PATH" == "/etc/panos" ]] && TEST=$(read_cfg "xsl_filter_path" "$CFG_FILE"); then
+        XSL_PATH="$TEST"
     # Try to read a GP Gateway from the config file if not parsed with -g
     if [ -z "$GP_GATEWAY" ] && GP_GATEWAY=$(read_cfg "gp_gateway" "$CFG_FILE"); then
         (( $VERBOSE > 0 )) && wlog "GlobalProtect Gateway \"$GP_GATEWAY\" filter found in: $CFG_FILE\n"
@@ -205,61 +215,52 @@ if [ -n "$CFG_FILE" ]; then
         (( $VERBOSE > 0 )) && wlog "Not filtering by GlobalProtect Domain.\n"
     fi
     # Try to read certificate expiry threshold from config file with -t
-    if [[ ! "$CHK_CERTS" == "true" ]] && CHK_CERTS=$(read_cfg "chk_client_certs" "$CFG_FILE"); then
-        if [[ "$CHK_CERTS" == "true" ]]; then
-            (( $VERBOSE > 0 )) && wlog "Checking client certificates.\n"
-        else
-            (( $VERBOSE > 0 )) && wlog "Not checking client certificates.\n"
-        fi
+    if [[ "$CHK_CERTS" != "true" ]] && CHK_CERTS=$(read_cfg "chk_client_certs" "$CFG_FILE"); then
+        :
+    else
+        CHK_CERTS=false
+    fi
+    if [[ "$CHK_CERTS" == "true" ]]; then
+        (( $VERBOSE > 0 )) && wlog "Checking client certificates.\n"
+    else
+        (( $VERBOSE > 0 )) && wlog "Not checking client certificates.\n"
     fi
 fi
 
 # Throw an error if an API_KEY is not yet found
 if [[ "$API_KEY" == "/etc/ipa/.panrc" ]]; then
-    wlog "ERROR: No API KEY parsed and/or found.\n"
+    (( $VERBOSE > 0 )) && wlog "ERROR: No API KEY parsed and/or found.\n"
     show_help >&2
     exit 1
 fi
 
 # Sanity check, at least one host must be known
 if [ -z "$PAN_MGMT" ]; then
-    wlog "ERROR: No host found, terminating.\n"
+    (( $VERBOSE > 0 )) && wlog "ERROR: No host found, terminating.\n"
     exit 1
 fi
 if [[ "$API_KEY" == "/etc/ipa/.panrc" ]]; then
-    wlog "ERROR: No API key found. Parse option '-k', check the config file or $API_KEY\n"
+    (( $VERBOSE > 0 )) && wlog "ERROR: No API key found. Parse option '-k', check the config file or $API_KEY\n"
     exit 5
 fi
-
-## Fetch GlobalProtect user details using panxapi.py
-# Define the keys we want to extract
-declare -a CURR_U_KEYS=("login-time-utc" "vpn-type" "client-ip" "source-region" "client" "app-version")   # active=yes if user is returned
-declare -a PREV_U_KEYS=("login-time-utc" "logout-time-utc" "reason" "vpn-type" "client-ip" "source-region" "client" "app-version")  # active=no if user not active now
-# client = OS identifier string
-
-# Define all possible keys for the final CSV output, in desired order
-declare -a CSV_HEADERS=("username" "active" "login-time-utc" "logout-time-utc" "reason" "vpn-type" "client-ip" "source-region" "client" "app-version" "cert-name" "cert-expiry-epoch")
-
-# Define a variable to hold all generated associative array names
-declare -a USER_ARRAYS=()
 
 # Function to run the panxapi command and get the raw XML
 # Use 'grep -v' to filter out the status lines panxapi.py prints to stdout
 get_api_xml() {
-    local _cmd_xml=$1
+    local _cmd_xml="$1"
+    local xml
     # Check if this is a config query (starts with '/') or op query (starts with '<')
     if [[ "$_cmd_xml" == "/"* ]]; then
-        panxapi.py -h "$PAN_MGMT" -K "$API_KEY" -gx "$_cmd_xml" 2>/dev/null | grep -v 'get: success'
+        xml=$(panxapi.py -h "$PAN_MGMT" -K "$API_KEY" -gx "$_cmd_xml" 2>/dev/null)
     else
-        panxapi.py -h "$PAN_MGMT" -K "$API_KEY" -xo "$_cmd_xml" 2>/dev/null | grep -v 'op: success'
+        xml=$(panxapi.py -h "$PAN_MGMT" -K "$API_KEY" -xo "$_cmd_xml" 2>/dev/null)
     fi
-}
-# Function to sanitise values: strip commas and double spaces
-sanitise_value() {
-    local input=$1
-    # Remove all commas and replace double spaces with single spaces globally
-    local output=$(echo "$input" | sed 's/,//g; s/  / /g')
-    echo "$output"
+    if [[ -z "$xml" ]] || grep -q "<error>" <<<"$xml"; then
+        (( $VERBOSE > 0 )) && wlog "ERROR: API query failed to retrieve XML data. Check credentials and privileges.\n"
+        return 1
+    fi
+    # Remove noise
+    echo "$xml"
 }
 
 ## Fetch data
@@ -271,78 +272,33 @@ else
     xml_sub=""
 fi
 # Execute get_xml_api() and save the output to temp files
-wlog "Fetching Current User data.\n"
-TMP_CURR=$(mktemp)
-if ! get_api_xml "<show><global-protect-gateway><current-user>$xml_sub</current-user></global-protect-gateway></show>" > "$TMP_CURR"; then
-    wlog "ERROR: Failed to retrieve Current User XML data. Check API KEY validity and privileges.\n" >&2
-    rm "$TMP_CURR"
+(( $VERBOSE > 0 )) && wlog "Fetching Current User data.\n"
+if ! curr_xml_data=$(get_api_xml "<show><global-protect-gateway><current-user>$xml_sub</current-user></global-protect-gateway></show>"); then
     exit 1
 fi
-wlog "Fetching Previous User data.\n"
-TMP_PREV=$(mktemp)
-if ! get_api_xml "<show><global-protect-gateway><previous-user>$xml_sub</previous-user></global-protect-gateway></show>" > "$TMP_PREV"; then
-    wlog "ERROR: Failed to retrieve Previous User XML data. Check API KEY validity and privileges.\n" >&2
-    rm "$TMP_PREV"
+(( $VERBOSE > 0 )) && wlog "Fetching Previous User data.\n"
+if ! prev_xml_data=$(get_api_xml "<show><global-protect-gateway><previous-user>$xml_sub</previous-user></global-protect-gateway></show>"); then
     exit 1
 fi
+# Combine the GlobalProtect XML output for current and previous users
+TMP_XML=$(mktemp)
+{
+  printf "<records>\n";
+  echo "$curr_xml_data" | xmlstarlet ed -s "/response/result/entry" -t elem -n active -v "yes" | xmlstarlet sel -t -c "/response/result/entry";
+  echo "$prev_xml_data" | xmlstarlet ed -s "/response/result/entry" -t elem -n active -v "no" | xmlstarlet sel -t -c "/response/result/entry";
+  printf "\n</records>\n";
+} | xmlstarlet tr "$XSL_PATH/$XSL_USERS" > "$TMP_XML"
+
 if [[ "$CHK_CERTS" == "true" ]]; then
-    wlog "Fetching client certificate data.\n"
-    TMP_CERT=$(mktemp)
-    if ! get_api_xml "/config/shared/certificate/entry[contains(@name, '$CRT_FLT' )]" > "$TMP_CERTS"; then
-        wlog "ERROR: Failed to retrieve client certificate data. Check API KEY validity and privileges.\n" >&2
+    (( $VERBOSE > 0 )) && wlog "Fetching client certificate data.\n"
+    if ! cert_xml_data=$(get_api_xml "/config/shared/certificate/entry[contains(@name, '$CRT_FLT' )]"); then
+        (( $VERBOSE > 0 )) && wlog "ERROR: Failed to retrieve client certificate data. Check API KEY validity and privileges.\n" >&2
         rm "$TMP_CERT"
         exit 1
     fi
 fi
 
-# Process 'Previous User' data first
-wlog "Processing Previous Users (historical data).\n"
-for username in $(xmlstarlet sel -t -v "//entry/username" "$TMP_PREV"); do
-    # Sanitise the username for use in a bash variable name
-    SAFE_UID=$(echo "$username" | tr '@%.,=' '_')
-    ARRAY_NAME="user_${SAFE_UID}_data"
-    # Check if this user was already processed (from the current users list)
-    if [[ ! -v "$ARRAY_NAME" ]]; then
-        declare -gA "$ARRAY_NAME"
-        USER_ARRAYS+=("$ARRAY_NAME")
-    fi
-    declare -n current_array_ref="$ARRAY_NAME"
-    (( $VERBOSE > 0 )) && wlog " - Processing user: $username\n"
-    current_array_ref["username"]="$username"
-    current_array_ref["active"]="no"
-    for key in "${PREV_U_KEYS[@]}"; do
-        value=$(xmlstarlet sel -t -v "//entry[username='$username']/$key" "$TMP_PREV")
-        value=$(sanitise_value "$value")
-        current_array_ref["$key"]="$value"
-    done
-done
 
-# Next process 'Current User' data, overwriting any duplicate keys
-wlog "Processing Current Users (live data).\n"
-# Iterate over entries in temp XML file with xmlstarlet
-for username in $(xmlstarlet sel -t -v "//entry/username" "$TMP_CURR"); do
-    # Sanitise the username for use in a bash variable name
-    SAFE_UID=$(echo "$username" | tr '@%.,=' '_')
-    ARRAY_NAME="user_${SAFE_UID}_data"
-    # Create the array structure if it doesn't yet exist
-    if [[ ! -v "$ARRAY_NAME" ]]; then
-        declare -gA "$ARRAY_NAME"
-        USER_ARRAYS+=("$ARRAY_NAME")
-    fi
-    declare -n current_array_ref="$ARRAY_NAME"
-    (( $VERBOSE > 0 )) && wlog " - Processing user: $username\n"
-    current_array_ref["username"]="$username"
-    current_array_ref["active"]="yes"  # Overwrite to 'yes' if username appears in both queries
-    # Iterate through defined keys, overwriting duplicates
-    for key in "${CUR_U_KEYS[@]}"; do
-        value=$(xmlstarlet sel -t -v "//entry[username='$username']/$key" "$TMP_CURR")
-        # Value might be empty if a field isn't present in the active list XML
-        if [[ -n "$value" ]]; then
-            value=$(sanitise_value "$value")
-            current_array_ref["$key"]="$value"
-        fi
-    done
-done
 
 # Finally, process Certificates to add the certificate name in PanOS config and expiry date
 if [[ "$CHK_CERTS" == "true" ]]; then
@@ -368,7 +324,7 @@ if [[ "$CHK_CERTS" == "true" ]]; then
 fi
 
 # Clean up temp files
-rm "$TMP_CURR" "$TMP_PREV" "$TMP_CERT"
+rm "$TMP_CURR" "$TMP_PREV" "$TMP_FILTERED" "$TMP_CERT" &>/dev/null
 
 ## CSV output for Telegraf exec processing
 wlog "Generating CSV Output, one line per user.\n"
