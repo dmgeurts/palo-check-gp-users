@@ -25,9 +25,7 @@
         <!-- ACTIVE logic based on existing active field -->
         <xsl:variable name="active">
           <xsl:choose>
-            <!-- If ANY entry has <active>yes</active> -->
             <xsl:when test="$userEntries[active = 'yes']">yes</xsl:when>
-            <!-- Otherwise, no entries are active -->
             <xsl:otherwise>no</xsl:otherwise>
           </xsl:choose>
         </xsl:variable>
