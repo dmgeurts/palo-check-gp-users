@@ -97,18 +97,17 @@ done
 shift "$((OPTIND-1))"   # Discard the options and sentinel --
 
 # Start logging
-wlog "START of pan_chk_gp_users.\n"
+(( $VERBOSE > 0 )) && wlog "START of pan_chk_gp_users.\n"
 
 ## Host checks
 PAN_MGMT=""
 chk_host() {
     if grep -q -P '(?=^.{4,253}$)(^((?!-)[a-zA-Z0-9-]{1,63}\.)+[a-zA-Z]{2,63}$)' <<< "$1"; then
-        echo "$1"
         # Convert to lowercase
         local _host="${1,,}"
         if ! nc -z $_host 443 2>/dev/null; then
             wlog "ERROR: Palo Alto device unreachable at: https://$_host/\n"
-            exit 4 
+            exit 4
         fi
         PAN_MGMT="$_host"
         return 0 # Success / true
@@ -147,7 +146,6 @@ if [[ -f "$@" ]]; then
         wlog "ERROR: File cannot be read: $@\n"
         exit 4
     fi
-    #(( $VERBOSE > 0 )) && wlog "File exists and can be read: $@\n"
 elif chk_host "$@"; then
     # PAN_MGMT is now set and tested as reachable
     (( $VERBOSE > 0 )) && wlog "Host $PAN_MGMT is reachable.\n"
@@ -174,7 +172,7 @@ if [[ "$API_KEY" != "/etc/ipa/.panrc" ]]; then
         show_help >&2
         exit 1
     fi
-fi 
+fi
 # Try to read API_KEY from file
 if API_KEY=$(read_cfg "api_key" "$API_KEY"); then
     # Changes the variable from a file-path to the API KEY string
@@ -241,18 +239,18 @@ fi
 
 # Throw an error if an API_KEY is not yet found
 if [[ "$API_KEY" == "/etc/ipa/.panrc" ]]; then
-    (( $VERBOSE > 0 )) && wlog "ERROR: No API KEY parsed and/or found.\n"
+    wlog "ERROR: No API KEY parsed and/or found.\n"
     show_help >&2
     exit 1
 fi
 
 # Sanity check, at least one host must be known
 if [ -z "$PAN_MGMT" ]; then
-    (( $VERBOSE > 0 )) && wlog "ERROR: No host found, terminating.\n"
+    wlog "ERROR: No host found, terminating.\n"
     exit 1
 fi
 if [[ "$API_KEY" == "/etc/ipa/.panrc" ]]; then
-    (( $VERBOSE > 0 )) && wlog "ERROR: No API key found. Parse option '-k', check the config file or $API_KEY\n"
+    wlog "ERROR: No API key found. Parse option '-k', check the config file or $API_KEY\n"
     exit 5
 fi
 
@@ -268,7 +266,7 @@ get_api_xml() {
         xml=$(panxapi.py -h "$PAN_MGMT" -K "$API_KEY" -xo "$_cmd_xml" 2>/dev/null)
     fi
     if [[ -z "$xml" ]] || grep -q "<error>" <<<"$xml"; then
-        (( $VERBOSE > 0 )) && wlog "ERROR: API query failed to retrieve XML data. Check credentials and privileges.\n"
+        wlog "ERROR: API query failed to retrieve XML data. Check credentials and privileges.\n"
         return 1
     fi
     # Remove noise
@@ -297,23 +295,69 @@ fi
 # Conditionally, fetch client certificate data
 if [[ "$CHK_CERTS" == "true" ]]; then
     (( $VERBOSE > 0 )) && wlog "Fetching client certificate data.\n"
-    #if ! cert_xml_data=$(get_api_xml "/config/shared/certificate/entry[contains(@name, '$CRT_FLT' )]"); then
-    if cert_xml_data=$(get_api_xml "/config/shared/certificate/entry"); then
-        cert_xml_data="$(
-            echo "$cert_xml_data" |
-            xmlstarlet sel -t -c "/response/result/entry" |
-            awk '
-                /<entry / { block=""; inside=1 }
-                inside   { block = block $0 "\n" }
-                /<\/entry>/ {
-                    inside=0
-                    print block
-                }
-            ' | grep -P "$CRT_FLT" | xmlstarlet fo 2>/dev/null
-        )"
+
+    if cert_api_data=$(get_api_xml "/config/shared/certificate/entry"); then
+        # Use Python to filter panxapi.py output
+        # Export variables so Python can see them
+        export XML_DATA="$cert_api_data"
+        export CRT_FLT
+        cert_xml_data=$(python3 -c '
+import os, sys, re
+import xml.etree.ElementTree as ET
+
+try:
+    xml_input = os.environ["XML_DATA"]
+    regex_pattern = os.environ["CRT_FLT"]
+
+    # Parse the input
+    # If the API returns a bare list, wrap it. If it returns <response>, use as is.
+    if not xml_input.strip().startswith("<"):
+         # Handle edge case of empty or weird data
+         sys.exit(0)
+
+    # Ensure we have a root. If API returns fragment, wrap it.
+    try:
+        root = ET.fromstring(xml_input)
+    except ET.ParseError:
+        # Fallback for fragment lists
+        root = ET.fromstring(f"<response><result>{xml_input}</result></response>")
+
+    # We expect standard PAN-OS structure: /response/result/entry
+    # We look for the "result" node to modify its children
+    result_node = root.find(".//result")
+
+    if result_node is not None:
+        # Identify matches
+        matches = []
+        for entry in result_node.findall("entry"):
+            name = entry.get("name", "")
+            if re.search(regex_pattern, name):
+                matches.append(entry)
+
+        # Clear ALL children from result node
+        # (This effectively deletes non-matches)
+        for child in list(result_node):
+            result_node.remove(child)
+
+        # Add back only the matches
+        result_node.extend(matches)
+
+    # Output the valid, filtered XML document
+    print(ET.tostring(root, encoding="unicode"))
+
+except Exception as e:
+    sys.stderr.write(f"Python Error: {e}\n")
+    sys.exit(1)
+        ')
+        # Format filtered XML ready for merging
+        if [[ -n "$cert_xml_data" ]]; then
+            cert_xml_data=$(echo "$cert_xml_data" | xmlstarlet tr "$XSL_PATH/$XSL_CERTS")
+        else
+            (( $VERBOSE > 0 )) && wlog "No certificates matched the filter.\n"
+        fi
     else
-        (( $VERBOSE > 0 )) && wlog "ERROR: Failed to retrieve client certificate data. Check API KEY validity and privileges.\n" >&2
-        # Don't exit, but report on the data that was successfully obtained
+        (( $VERBOSE > 0 )) && wlog "ERROR: Failed to retrieve client certificate data.\m" >&2
+        # Don't exit, do report on the data that was successfully obtained
     fi
 fi
 
@@ -323,7 +367,7 @@ TMP_XML=$(mktemp)
     printf "<records>\n";
     echo "$curr_xml_data" | xmlstarlet ed -s "/response/result/entry" -t elem -n active -v "yes" | xmlstarlet sel -t -c "/response/result/entry";
     echo "$prev_xml_data" | xmlstarlet ed -s "/response/result/entry" -t elem -n active -v "no" | xmlstarlet sel -t -c "/response/result/entry";
-    [ -n "$cert_xml_data" ] && echo "$cert_xml_data" | xmlstarlet tr "$XSL_PATH/$XSL_CERTS" | grep -v "xml version"
+    [ -n "$cert_xml_data" ] && echo "$cert_xml_data" | grep -v "xml version"
     printf "\n</records>\n";
 } | xmlstarlet tr "$XSL_PATH/$XSL_USERS" > "$TMP_XML"
 
