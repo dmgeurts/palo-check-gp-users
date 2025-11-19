@@ -161,8 +161,9 @@ Then edit the Telegraf config and add a new `[[input.exec]]` section:
 
 Adjust as required.
 
-Finally, restart Telegraf and monitor the journal for errors:
+Finally, reload Telegraf and monitor the journal for errors:
 
+`sudo systemctl reload telegraf`  
 `sudo journalctl -fu telegraf` 
 
 ⚠️ If using a `.panrc` api_key file, ensure that telegraf can read the file. ⚠️
