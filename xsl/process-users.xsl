@@ -72,6 +72,10 @@
           </reason>
 
           <!-- SESSION FIELDS (latest session only) -->
+          <tunnel-type>
+            <xsl:value-of select="$latestLogin/tunnel-type"/>
+          </tunnel-type>
+
           <vpn-type>
             <xsl:value-of select="$latestLogin/vpn-type"/>
           </vpn-type>
