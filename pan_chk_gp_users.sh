@@ -201,7 +201,7 @@ if [ -n "$CFG_FILE" ]; then
         (( $VERBOSE > 0 )) && wlog "API key found in: $CFG_FILE\n"
     fi
     # Try to read XSLT filter path from config file if not parsed with -x
-    if [[ "$XSL_PATH" == "/etc/panos" ]] && TEST=$(read_cfg "xsl_filter_path" "$CFG_FILE"); then
+    if [[ "$XSL_PATH" == "/etc/panos/xsl" ]] && TEST=$(read_cfg "xsl_filter_path" "$CFG_FILE"); then
         XSL_PATH="$TEST"
     fi
     # Try to read a GP Gateway from the config file if not parsed with -g
