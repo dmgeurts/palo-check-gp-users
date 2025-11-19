@@ -20,7 +20,7 @@
 # Reuse pan_instcert API key
 API_KEY="/etc/ipa/.panrc"
 # XSLT filter path
-XSL_PATH="/etc/panos"
+XSL_PATH="/etc/panos/xsl"
 XSL_USERS="process-users.xsl"
 XSL_CERTS="process-certs.xsl"
 # Filter for selecting certificates to report on
