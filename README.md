@@ -136,6 +136,7 @@ Then edit the Telegraf config and add a new `[[input.exec]]` section:
     [inputs.exec.xpath.tags]
       username      = "username"
       source_region = "source-region"
+      tunnel_type   = "tunnel-type"
       vpn_type      = "vpn-type"
       active        = "active"
 
