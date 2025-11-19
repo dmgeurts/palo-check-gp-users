@@ -62,7 +62,7 @@ OPTIONS:
                       If a string is parsed, the following paths are searched:
                       {key(path)}/.panrc         - Example: /etc/panos/fw1.local/.panrc
                       /etc/ipa/.panrc.{key(ext)} - Example: /etc/ipa/.panrc.fw1.local
-    -x path           Path to XSLT filters.        (default: /etc/panos/)
+    -x path           Path to XSLT filters.        (default: /etc/panos/xsl)
     -g gateway        GlobalProtect gateway.       (default: all)
     -d domain         GlobalProtect domain.        (default: all)
     -c                Check client certs           (default: no)
