@@ -10,7 +10,8 @@
 #   - All users: <show><global-protect-gateway><previous-user/></global-protect-gateway></show>
 #   - Or by gateway: <show><global-protect-gateway><previous-user><gateway>$GATEWAY</gateway></previous-user></global-protect-gateway></show>
 #   - Or by domain: <show><global-protect-gateway><previous-user><domain>$DOMAIN</domain></previous-user></global-protect-gateway></show>
-# - (Optionally) Client Certificates: /config/shared/certificate/entry[contains(@name, '$CRT_FLT' )]
+# - (Optionally) Client Certificates: /config/shared/certificate/entry
+#   - Can filter by regex, but uses Python to do so as XPATH v1.09 doesn't accept regex filters on "contains string".
 
 ## Requirements
 # Installed packages: openssl, pan-python, xmlstarlet
