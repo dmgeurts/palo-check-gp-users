@@ -112,10 +112,10 @@ Then edit the Telegraf config and add a new `[[input.exec]]` section:
   ## Commands array
   commands = [ "/usr/local/sbin/pan_chk_gp_users.sh -k /etc/ipa/.panrc.fw01 /etc/panos/pan_chk_gp_users.fw01.conf" ]
 
-  ## Run this script every 5 minutes, not every 10 seconds or so.
+  ## Run this script every 5 minutes, not every 10 seconds.
   interval = "5m"
 
-  ## Set a specific timeout as API calls can take a little time, depending on how much data is collected and the CPU load of the firewall..
+  ## Set a specific timeout as API calls can take a little time, depending on how much data is collected and the CPU load of the firewall.
   timeout = "30s"
 
   ## Ignore Error Code
@@ -135,10 +135,12 @@ Then edit the Telegraf config and add a new `[[input.exec]]` section:
     ## TAGS: Used for grouping and filtering (Indexed)
     [inputs.exec.xpath.tags]
       username      = "username"
+      active        = "active"
       source_region = "source-region"
       tunnel_type   = "tunnel-type"
       vpn_type      = "vpn-type"
-      active        = "active"
+      is_session    = "is-session-user"
+      is_cert_only  = "is-cert-only"
 
     ## FIELDS: The actual data values (Not Indexed)
     [inputs.exec.xpath.fields]
@@ -151,8 +153,8 @@ Then edit the Telegraf config and add a new `[[input.exec]]` section:
 
       ## Strings
       client_ip   = "client-ip"
-      reason      = "reason"
       client      = "client"
+      reason      = "reason"
       app_version = "app-version"
       cert_name   = "cert-name"
 
@@ -169,3 +171,69 @@ Finally, reload Telegraf and monitor the journal for errors:
 ⚠️ If using a `.panrc` api_key file, ensure that telegraf can read the file. ⚠️
 
 One way to do so is to set the group ownership of this file to telegraf and permit read privileges to the group.
+
+### Example flux queries
+
+Active users: 
+
+```js
+from(bucket: "bucket") // Active users
+  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |> filter(fn: (r) => r._measurement == "globalprotect_users")
+  |> filter(fn: (r) => r._field == "app_version")
+  |> filter(fn: (r) => r.active == "yes")
+  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)
+  |> group(columns: ["_measurement", "_time"])
+  |> distinct(column: "username")
+  |> count()
+  |> group()
+  |> rename(columns: {_value: "Active users"})
+```
+
+Total users: 
+
+```js
+from(bucket: "bucket") // Total users
+  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |> filter(fn: (r) => r._measurement == "globalprotect_users")
+  |> filter(fn: (r) => r._field == "app_version")
+  |> filter(fn: (r) => r.is_session == "true")
+  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)
+  |> group(columns: ["_measurement", "_time"])
+  |> distinct(column: "username")
+  |> count()
+  |> group()
+  |> rename(columns: {_value: "Total users"})
+```
+
+Total client certificates: 
+
+```js
+from(bucket: "ipn_firewalls") // Total client certificates
+  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |> filter(fn: (r) => r._measurement == "globalprotect_users")
+  |> filter(fn: (r) => r._field == "cert_name")
+  |> filter(fn: (r) => exists r._value)
+  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)
+  |> group(columns: ["_measurement", "_time"])
+  |> distinct(column: "username")
+  |> count()
+  |> group()
+  |> rename(columns: {_value: "Client certs"})
+```
+
+Unused client certificates: 
+
+```js
+from(bucket: "ipn_firewalls") // Unused client certificates
+  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+  |> filter(fn: (r) => r._measurement == "globalprotect_users")
+  |> filter(fn: (r) => r._field == "cert_name")
+  |> filter(fn: (r) => r.is_cert_only == "true")
+  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)
+  |> group(columns: ["_measurement", "_time"])
+  |> distinct(column: "username")
+  |> count()
+  |> group()
+  |> rename(columns: {_value: "Unused certs"})
+```
