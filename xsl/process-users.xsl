@@ -8,102 +8,124 @@
   <xsl:template match="/">
     <records>
 
-      <!-- For each unique username -->
+      <!-- Loop over unique usernames -->
       <xsl:for-each select="//entry[generate-id() = generate-id(key('by-user', username)[1])]">
 
-        <xsl:variable name="uname" select="username"/>
+        <xsl:variable name="uname"       select="username"/>
         <xsl:variable name="userEntries" select="key('by-user', $uname)"/>
 
-        <!-- SESSION entries (those having login-time-utc) -->
+        <!-- Certificate metadata -->
+        <xsl:variable name="certName"   select="$userEntries/cert-name"/>
+        <xsl:variable name="certExpiry" select="$userEntries/cert-expiry-epoch"/>
+
+        <!-- All entries containing VPN session data -->
         <xsl:variable name="sessionEntries" select="$userEntries[login-time-utc]"/>
 
-        <!-- LATEST session login -->
-        <xsl:variable name="latestLogin" select="$sessionEntries[not(number(login-time-utc) &lt; number(../login-time-utc))]"/>
+        <!-- Detect certificate-only user -->
+        <xsl:variable name="isCertOnly" select="not($sessionEntries) and $certName"/>
 
-        <!-- LATEST session logout -->
-        <xsl:variable name="latestLogout" select="$sessionEntries[ not(number(logout-time-utc) &lt; number(../logout-time-utc))]"/>
+        <!-- Detect real session user -->
+        <xsl:variable name="isSessionUser" select="boolean($sessionEntries)"/>
 
-        <!-- ACTIVE: active=yes only if ANY session entry says active=yes -->
+        <!-- Latest Session Records -->
+        <xsl:variable name="latestLogin"  select="$sessionEntries [not(number(login-time-utc) &lt; number(../login-time-utc))]"/>
+        <xsl:variable name="latestLogout" select="$sessionEntries [not(number(logout-time-utc) &lt; number(../logout-time-utc))]"/>
+
+        <!-- ACTIVE state -->
         <xsl:variable name="active">
           <xsl:choose>
+            <xsl:when test="$isCertOnly">cn</xsl:when>
             <xsl:when test="$sessionEntries[active='yes']">yes</xsl:when>
             <xsl:otherwise>no</xsl:otherwise>
           </xsl:choose>
         </xsl:variable>
 
-        <!-- COUNTS (certificate-only entries excluded) -->
-        <xsl:variable name="currentCount" select="count($sessionEntries[not(normalize-space(logout-time-utc))])"/>
-
+        <!-- COUNTS (session users only) -->
+        <xsl:variable name="currentCount"  select="count($sessionEntries[not(normalize-space(logout-time-utc))])"/>
         <xsl:variable name="previousCount" select="count($sessionEntries[normalize-space(logout-time-utc)])"/>
 
-        <!-- CERT METADATA (may be none, may be multiple) -->
-        <xsl:variable name="certName" select="$userEntries/cert-name"/>
-        <xsl:variable name="certExpiry" select="$userEntries/cert-expiry-epoch"/>
-
+        <!-- OUTPUT BLOCK -->
         <entry>
-          <username><xsl:value-of select="$uname"/></username>
 
+          <!-- Core -->
+          <username><xsl:value-of select="$uname"/></username>
           <active><xsl:value-of select="$active"/></active>
 
-          <!-- EMPTY IF ZERO -->
+          <!-- Helpers -->
+          <is-session-user><xsl:value-of select="$isSessionUser"/></is-session-user>
+          <is-cert-only><xsl:value-of select="$isCertOnly"/></is-cert-only>
+
+          <!-- Counters -->
           <current-count>
-            <!-- <xsl:if test="$currentCount &gt; 0"> -->
+            <xsl:if test="not($isCertOnly)">
               <xsl:value-of select="$currentCount"/>
-            <!-- </xsl:if> -->
+            </xsl:if>
           </current-count>
 
           <previous-count>
-            <!-- <xsl:if test="$previousCount &gt; 0"> -->
+            <xsl:if test="not($isCertOnly)">
               <xsl:value-of select="$previousCount"/>
-            <!-- </xsl:if> -->
+            </xsl:if>
           </previous-count>
 
-          <!-- LOGIN / LOGOUT FIELDS ONLY FOR SESSION ENTRIES -->
+          <!-- Session-only fields -->
           <login-time-utc>
-            <xsl:value-of select="$latestLogin/login-time-utc"/>
+            <xsl:if test="$isSessionUser">
+              <xsl:value-of select="$latestLogin/login-time-utc"/>
+            </xsl:if>
           </login-time-utc>
 
           <logout-time-utc>
-            <xsl:value-of select="$latestLogout/logout-time-utc"/>
+            <xsl:if test="$isSessionUser">
+              <xsl:value-of select="$latestLogout/logout-time-utc"/>
+            </xsl:if>
           </logout-time-utc>
 
           <reason>
-            <xsl:value-of select="$latestLogout/reason"/>
+            <xsl:if test="$isSessionUser">
+              <xsl:value-of select="$latestLogout/reason"/>
+            </xsl:if>
           </reason>
 
-          <!-- SESSION FIELDS (latest session only) -->
           <tunnel-type>
-            <xsl:value-of select="$latestLogin/tunnel-type"/>
+            <xsl:if test="$isSessionUser">
+              <xsl:value-of select="$latestLogin/tunnel-type"/>
+            </xsl:if>
           </tunnel-type>
 
           <vpn-type>
-            <xsl:value-of select="$latestLogin/vpn-type"/>
+            <xsl:if test="$isSessionUser">
+              <xsl:value-of select="$latestLogin/vpn-type"/>
+            </xsl:if>
           </vpn-type>
 
           <client-ip>
-            <xsl:value-of select="$latestLogin/client-ip"/>
+            <xsl:if test="$isSessionUser">
+              <xsl:value-of select="$latestLogin/client-ip"/>
+            </xsl:if>
           </client-ip>
 
           <source-region>
-            <xsl:value-of select="$latestLogin/source-region"/>
+            <xsl:if test="$isSessionUser">
+              <xsl:value-of select="$latestLogin/source-region"/>
+            </xsl:if>
           </source-region>
 
           <client>
-            <xsl:value-of select="$latestLogin/client"/>
+            <xsl:if test="$isSessionUser">
+              <xsl:value-of select="$latestLogin/client"/>
+            </xsl:if>
           </client>
 
           <app-version>
-            <xsl:value-of select="$latestLogin/app-version"/>
+            <xsl:if test="$isSessionUser">
+              <xsl:value-of select="$latestLogin/app-version"/>
+            </xsl:if>
           </app-version>
 
-          <!-- CERTIFICATE FIELDS -->
-          <cert-name>
-            <xsl:value-of select="$certName"/>
-          </cert-name>
-
-          <cert-expiry-epoch>
-            <xsl:value-of select="$certExpiry"/>
-          </cert-expiry-epoch>
+          <!-- Certificates always output -->
+          <cert-name><xsl:value-of select="$certName"/></cert-name>
+          <cert-expiry-epoch><xsl:value-of select="$certExpiry"/></cert-expiry-epoch>
 
         </entry>
 
