@@ -68,8 +68,6 @@
                 </duration_sec>
             </xsl:if>
 
-            <client_ip><xsl:value-of select="client-ip"/></client_ip>
-
             <cert_expiry_epoch>
                 <xsl:choose>
                     <xsl:when test="$certNode"><xsl:value-of select="$certNode/cert-expiry-epoch"/></xsl:when>
