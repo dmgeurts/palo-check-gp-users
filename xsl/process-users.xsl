@@ -34,7 +34,7 @@
           </status>
 
           <source_region><xsl:value-of select="source-region"/></source_region>
-          <vpn_type><xsl:value-of select="vpn-type"/></vpn-type>
+          <vpn_type><xsl:value-of select="vpn-type"/></vpn_type>
           <tunnel_type><xsl:value-of select="tunnel-type"/></tunnel_type>
           <client_os><xsl:value-of select="client"/></client_os>
           <app_version><xsl:value-of select="app-version"/></app_version>
@@ -44,7 +44,7 @@
 
           <logout_epoch><xsl:value-of select="$logout"/></logout_epoch>
 
-          <xsl:if test="$isActive != 'yes' and string-length($logout) > 0">
+          <xsl:if test="$isActive != 'yes' and string-length($logout) &gt; 0">
             <duration_sec><xsl:value-of select="$logout - $login"/></duration_sec>
           </xsl:if>
 
@@ -88,7 +88,7 @@
             <disconnect_reason>Certificate exists but no session data</disconnect_reason>
 
             <cert_name><xsl:value-of select="cert-name"/></cert_name>
-            <cert_expiry_epoch><xsl:value-of select="cert-expiry-epoch"/></cert_expiry-epoch>
+            <cert_expiry_epoch><xsl:value-of select="cert-expiry-epoch"/></cert_expiry_epoch>
           </entry>
         </xsl:if>
       </xsl:for-each>
