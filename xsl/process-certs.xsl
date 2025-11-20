@@ -6,7 +6,7 @@
   <xsl:template match="/">
       <xsl:for-each select="/response/result/entry">
         <entry>
-          <username><xsl:value-of select="common-name"/></username>
+          <common-name><xsl:value-of select="common-name"/></common-name>
 
           <cert-name><xsl:value-of select="@name"/></cert-name>
           <cert-expiry-epoch><xsl:value-of select="expiry-epoch"/></cert-expiry-epoch>
