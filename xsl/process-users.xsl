@@ -39,8 +39,8 @@
             
             <source_region><xsl:value-of select="source-region"/></source_region>
             <vpn_type><xsl:value-of select="vpn-type"/></vpn_type>
+            <tunnel_type><xsl:value-of select="tunnel-type"/></tunnel_type>
             <client_os><xsl:value-of select="client"/></client_os>
-            
             <host_id><xsl:value-of select="host-id"/></host_id>
             
             <cert_name>
