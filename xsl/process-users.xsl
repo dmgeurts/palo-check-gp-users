@@ -41,6 +41,8 @@
             <vpn_type><xsl:value-of select="vpn-type"/></vpn-type>
             <client_os><xsl:value-of select="client"/></client_os>
             
+            <host_id><xsl:value-of select="host-id"/></host_id>
+            
             <cert_name>
                 <xsl:choose>
                     <xsl:when test="$certNode"><xsl:value-of select="$certNode/cert-name"/></xsl:when>
