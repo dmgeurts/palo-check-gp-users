@@ -41,7 +41,10 @@
             <vpn_type><xsl:value-of select="vpn-type"/></vpn_type>
             <tunnel_type><xsl:value-of select="tunnel-type"/></tunnel_type>
             <client_os><xsl:value-of select="client"/></client_os>
+            <app_version><xsl:value-of select="app-version"/></app_version>
             <host_id><xsl:value-of select="host-id"/></host_id>
+            <client_ip><xsl:value-of select="client-ip"/></client_ip>
+            <disconnect_reason><xsl:value-of select="reason"/></disconnect_reason>
             
             <cert_name>
                 <xsl:choose>
@@ -66,7 +69,6 @@
             </xsl:if>
 
             <client_ip><xsl:value-of select="client-ip"/></client_ip>
-            <disconnect_reason><xsl:value-of select="reason"/></disconnect_reason>
 
             <cert_expiry_epoch>
                 <xsl:choose>
