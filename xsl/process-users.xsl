@@ -37,8 +37,8 @@
                 </xsl:choose>
             </status>
             
-            <source_region><xsl:value-of select="source-region"/></source-region>
-            <vpn_type><xsl:value-of select="vpn-type"/></vpn-type>
+            <source_region><xsl:value-of select="source-region"/></source_region>
+            <vpn_type><xsl:value-of select="vpn-type"/></vpn_type>
             <client_os><xsl:value-of select="client"/></client_os>
             
             <host_id><xsl:value-of select="host-id"/></host_id>
@@ -65,7 +65,7 @@
                 </duration_sec>
             </xsl:if>
 
-            <client_ip><xsl:value-of select="client-ip"/></client-ip>
+            <client_ip><xsl:value-of select="client-ip"/></client_ip>
             <disconnect_reason><xsl:value-of select="reason"/></disconnect_reason>
 
             <cert_expiry_epoch>
