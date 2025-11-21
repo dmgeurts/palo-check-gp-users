@@ -8,6 +8,9 @@
   <xsl:template match="/">
     <records>
 
+      <!-- ========================================================= -->
+      <!-- PASS 1: VPN SESSIONS (Unconditional)                      -->
+      <!-- ========================================================= -->
       <xsl:for-each select="//entry[active]">
 
         <xsl:variable name="uname" select="username"/>
@@ -41,7 +44,6 @@
           <host_id><xsl:value-of select="host-id"/></host_id>
 
           <login_epoch><xsl:value-of select="$login"/></login_epoch>
-
           <logout_epoch><xsl:value-of select="$logout"/></logout_epoch>
 
           <xsl:if test="$isActive != 'yes' and string-length($logout) &gt; 0">
@@ -65,33 +67,43 @@
         </entry>
       </xsl:for-each>
 
-      <xsl:for-each select="//entry[not(active)]">
-        <xsl:variable name="certUser" select="common-name"/>
+      <!-- ========================================================= -->
+      <!-- PASS 2: UNUSED CERTIFICATES (Conditional)                 -->
+      <!-- ========================================================= -->
+      <!-- 
+           SAFETY: Check if we actually have 'disconnected' (active='no') data.
+           If the firewall has no history (reboot/glitch), this test fails,
+           and we skip generating 'unused' records to prevent false positives.
+      -->
+      <xsl:if test="//entry[active='no']">
+          <xsl:for-each select="//entry[not(active)]">
+            <xsl:variable name="certUser" select="common-name"/>
 
-        <xsl:if test="not(key('vpn-lookup', $certUser))">
-          <entry>
-            <session_id>cert_only_<xsl:value-of select="$certUser"/></session_id>
-            <username><xsl:value-of select="$certUser"/></username>
-            <status>unused</status>
+            <xsl:if test="not(key('vpn-lookup', $certUser))">
+              <entry>
+                <session_id>cert_only_<xsl:value-of select="$certUser"/></session_id>
+                <username><xsl:value-of select="$certUser"/></username>
+                <status>unused</status>
 
-            <source_region></source_region>
-            <vpn_type></vpn_type>
-            <tunnel_type></tunnel_type>
-            <client_os></client_os>
-            <app_version></app_version>
-            <host_id></host_id>
+                <source_region></source_region>
+                <vpn_type></vpn_type>
+                <tunnel_type></tunnel_type>
+                <client_os></client_os>
+                <app_version></app_version>
+                <host_id></host_id>
 
-            <login_epoch></login_epoch>
-            <logout_epoch></logout_epoch>
-            <client_ip></client_ip>
+                <login_epoch></login_epoch>
+                <logout_epoch></logout_epoch>
+                <client_ip></client_ip>
 
-            <disconnect_reason>Certificate exists but no session data</disconnect_reason>
+                <disconnect_reason>No session</disconnect_reason>
 
-            <cert_name><xsl:value-of select="cert-name"/></cert_name>
-            <cert_expiry_epoch><xsl:value-of select="cert-expiry-epoch"/></cert_expiry_epoch>
-          </entry>
-        </xsl:if>
-      </xsl:for-each>
+                <cert_name><xsl:value-of select="cert-name"/></cert_name>
+                <cert_expiry_epoch><xsl:value-of select="cert-expiry-epoch"/></cert_expiry_epoch>
+              </entry>
+            </xsl:if>
+          </xsl:for-each>
+      </xsl:if>
 
     </records>
   </xsl:template>
